@@ -456,7 +456,7 @@ class EAP225TplinkDeviceScanner(TplinkDeviceScanner):
         # A timestamp is required to be sent as get parameter
         timestamp = int(datetime.now().timestamp() * 1e3)
 
-        client_list_url = '{}/data/monitor.client.client.json'.format(
+        client_list_url = '{}/data/status.client.user.json'.format(
             base_url)
 
         get_params = {
@@ -476,7 +476,7 @@ class EAP225TplinkDeviceScanner(TplinkDeviceScanner):
 
         if list_of_devices:
             self.last_results = {
-                device['MAC'].replace('-', ':'): device['DeviceName']
+                device['MAC'].replace('-', ':'): device['hostname']
                 for device in list_of_devices['data']
                 }
             return True
