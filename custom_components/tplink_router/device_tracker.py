@@ -48,6 +48,7 @@ def get_scanner(hass, config):
     """Validate the configuration and return a TP-Link scanner."""
     for cls in [VR600TplinkDeviceScanner,
                 EAP225TplinkDeviceScanner,
+                EAP120TplinkDeviceScanner,
                 N600TplinkDeviceScanner,
                 C7TplinkDeviceScanner,
                 C9TplinkDeviceScanner,
@@ -412,8 +413,10 @@ class C7TplinkDeviceScanner(TplinkDeviceScanner):
         return True
 
 
-class EAP225TplinkDeviceScanner(TplinkDeviceScanner):
-    """This class queries a TP-Link EAP-225 AP with newer TP-Link FW."""
+class EAPTplinkDeviceScanner(TplinkDeviceScanner):
+
+    json_name: str
+    device_key: str
 
     def scan_devices(self):
         """Scan for new devices and return a list with found MAC IDs."""
@@ -456,8 +459,9 @@ class EAP225TplinkDeviceScanner(TplinkDeviceScanner):
         # A timestamp is required to be sent as get parameter
         timestamp = int(datetime.now().timestamp() * 1e3)
 
-        client_list_url = '{}/data/status.client.user.json'.format(
-            base_url)
+        # status.client.user.json
+        client_list_url = '{}/data/{}'.format(
+            base_url, self.json_name)
 
         get_params = {
             'operation': 'load',
@@ -467,21 +471,39 @@ class EAP225TplinkDeviceScanner(TplinkDeviceScanner):
         response = session.get(
             client_list_url, headers=header, params=get_params)
         session.close()
+        if not response.status_code == 200:
+            return False
+
         try:
             list_of_devices = response.json()
         except ValueError:
-            _LOGGER.error("AP didn't respond with JSON. "
-                          "Check if credentials are correct")
             return False
 
         if list_of_devices:
             self.last_results = {
-                device['MAC'].replace('-', ':'): device['hostname']
+                device['MAC'].replace('-', ':'): device[self.device_key]
                 for device in list_of_devices['data']
                 }
             return True
 
         return False
+
+class EAP225TplinkDeviceScanner(EAPTplinkDeviceScanner):
+    """This class queries a TP-Link EAP-225 AP with newer TP-Link FW.3xxx"""
+
+    def __init__(self, config):
+        self.json_name = 'status.client.user.json'
+        self.device_key = 'hostname'
+        super().__init__(config)
+
+
+class EAP120TplinkDeviceScanner(EAPTplinkDeviceScanner):
+
+    def __init__(self, config):
+        self.json_name = 'monitor.client.client.json'
+        self.device_key = 'DeviceName'
+        super().__init__(config)
+
 
 class VR600TplinkDeviceScanner(TplinkDeviceScanner):
     """This class queries an Archer VR600 router with TP-Link firmware."""
